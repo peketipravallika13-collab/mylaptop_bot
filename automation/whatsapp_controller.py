@@ -16,10 +16,20 @@ class WhatsAppController:
 
     @classmethod
     def open_whatsapp(cls) -> bool:
-        """Open or focus WhatsApp."""
-        # Try focusing existing WhatsApp window/tab first
+        """Open or focus WhatsApp (prefers native Windows desktop app, falls back to web)."""
+        # 1. Try focusing existing WhatsApp window/tab first
         if win_ctrl.focus_window_by_title("whatsapp"):
             return True
+        # 2. Try launching native Windows WhatsApp desktop app
+        try:
+            import os
+            os.system("start whatsapp:")
+            time.sleep(1.5)
+            if win_ctrl.focus_window_by_title("whatsapp"):
+                return True
+        except Exception:
+            pass
+        # 3. Fallback to WhatsApp Web
         return browser_ctrl.open_browser(cls.WHATSAPP_URL)
 
     @classmethod
@@ -40,9 +50,11 @@ class WhatsAppController:
         time.sleep(2.0)
 
         try:
-            # WhatsApp Web search shortcut: Ctrl+Alt+/ (or / or Ctrl+F)
+            # WhatsApp Desktop & Web search shortcut (Ctrl+F, then Ctrl+Alt+/)
+            pyautogui.hotkey("ctrl", "f")
+            time.sleep(0.3)
             pyautogui.hotkey("ctrl", "alt", "/")
-            time.sleep(0.4)
+            time.sleep(0.3)
             
             # Type contact name
             pyperclip.copy(contact_name)
@@ -51,7 +63,7 @@ class WhatsAppController:
             
             # Press Down arrow and Enter to select first contact result
             pyautogui.press("down")
-            time.sleep(0.2)
+            time.sleep(0.3)
             pyautogui.press("enter")
             time.sleep(0.5)
             return True

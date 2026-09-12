@@ -22,6 +22,8 @@ class CommandRouter:
         replacements = [
             (r"\b(onpin|onpn|opined|opin\w*|opne\w*|opn\w*|ope)\b", "open"),
             (r"\b(whats\s*app|what's\s*app)\b", "whatsapp"),
+            (r"\b(whatsapp\s+)add\b", r"\1app"),
+            (r"\b(chal|caht|cahtt)\b", "chat"),
             (r"\b(coppy|copey|copi|copyy)\b", "copy"),
             (r"\b(past|paaste|peyst)\b", "paste"),
             (r"\b(crome|chome|chrom)\b", "chrome"),
@@ -82,17 +84,20 @@ class CommandRouter:
             msg = wa_msg_match.group(2).strip()
             return {"action": "send_whatsapp_message", "contact": contact, "message": msg, "category": "WHATSAPP", "description": f"Send WhatsApp message to {contact}: '{msg}'"}
 
-        # Case B: Open specific chat -> "open whatsapp and in that Rahul chat", "open whatsapp app and in the whatsapp app search the rachel rachabanda chat"
-        wa_chat_match = re.search(r"^open\s+whatsapp(?:\s+app)?\s+(?:and\s+)?in\s+(?:the\s+whatsapp\s+(?:app\s+)?)?(?:that\s+)?(?:search\s+)?(?:the\s+)?([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?$", clean) or \
-                        re.search(r"^open\s+whatsapp(?:\s+app)?\s+(?:(?:and\s+)?in\s+that\s+|(?:and\s+)?(?:search|find|chat\s+with)\s+|chat\s+of\s+)?([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?(?:\s+on\s+whatsapp|\s+in\s+whatsapp)?$", clean) or \
+        # Case B: Direct open WhatsApp app standalone
+        if clean in ("open whatsapp", "open whatsapp app", "launch whatsapp", "launch whatsapp app", "whatsapp", "whatsapp app", "open whatsapp web"):
+            if "web" in clean:
+                return {"action": "open_browser", "url": "https://web.whatsapp.com", "category": "BROWSER", "description": "Open WhatsApp Web"}
+            return {"action": "open_app", "target": "whatsapp", "category": "APPLICATION", "description": "Open WhatsApp Desktop App"}
+
+        # Case C: Open specific chat -> "open whatsapp and in that Rahul chat", "open whatsapp app and in the whatsapp app search the rachel rachabanda chat", "open whatsapp add and in that open the rachel chal"
+        wa_chat_match = re.search(r"^open\s+whatsapp(?:\s+app)?\s+(?:(?:and\s+)?in\s+(?:the\s+whatsapp\s+(?:app\s+)?)?(?:that\s+)?(?:search\s+|open\s+)?(?:the\s+)?|(?:and\s+)?(?:search|find|chat\s+with)\s+|chat\s+of\s+)?([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?(?:\s+on\s+whatsapp|\s+in\s+whatsapp)?$", clean) or \
                         re.search(r"^in\s+whatsapp\s+(?:app\s+)?(?:search\s+|open\s+)(?:the\s+)?([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?$", clean) or \
                         re.search(r"^open\s+(?:chat\s+of\s+|conversation\s+with\s+)([a-zA-Z0-9\s]+?)\s+on\s+whatsapp$", clean)
         if wa_chat_match:
             contact = wa_chat_match.group(1).strip()
-            # If the user just said "open whatsapp" or "open whatsapp app"
-            if contact in ("", "whatsapp", "app", "whatsapp app", "the whatsapp"):
-                return {"action": "open_browser", "url": "https://web.whatsapp.com", "category": "BROWSER", "description": "Open WhatsApp"}
-            return {"action": "open_whatsapp_chat", "contact": contact, "category": "WHATSAPP", "description": f"Open WhatsApp chat for {contact}"}
+            if contact and contact not in ("", "whatsapp", "app", "whatsapp app", "the whatsapp"):
+                return {"action": "open_whatsapp_chat", "contact": contact, "category": "WHATSAPP", "description": f"Open WhatsApp chat for {contact}"}
 
         wa_type_send = re.search(r"^(?:type\s+this\s+|type\s+)(.+?)(?:\s+and\s+send|\s+in\s+whatsapp\s+and\s+send)$", clean)
         if wa_type_send:

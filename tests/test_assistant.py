@@ -132,13 +132,18 @@ class TestPersonalAIAssistant(unittest.TestCase):
         # Test step-by-step WhatsApp in-app commands
         res = command_router.match_local_command("open whatsapp app")
         self.assertIsNotNone(res)
-        self.assertEqual(res["action"], "open_browser")
-        self.assertEqual(res["url"], "https://web.whatsapp.com")
+        self.assertEqual(res["action"], "open_app")
+        self.assertEqual(res["target"], "whatsapp")
 
         res = command_router.match_local_command("open whatsapp in that Rahul chat")
         self.assertIsNotNone(res)
         self.assertEqual(res["action"], "open_whatsapp_chat")
         self.assertEqual(res["contact"], "rahul")
+
+        res = command_router.match_local_command("opin whatsapp add and in that opin the rachel chal")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "open_whatsapp_chat")
+        self.assertEqual(res["contact"], "rachel")
 
         res = command_router.match_local_command("in whatsapp open Alex")
         self.assertIsNotNone(res)
