@@ -41,7 +41,14 @@ class WindowsController:
                 if DEBUG:
                     print(f"[WindowsController Error] Launching {app_name}: {e}")
 
-        # 2. Universal Windows Start Search Fallback (searches entire laptop)
+        # 2. Universal Windows Start Search Fallback (only for clean single app names)
+        # Avoid typing multi-word sentences with prepositions into Windows search
+        words = name_clean.split()
+        if len(words) > 2 or any(w in ("in", "that", "and", "or", "chat", "search", "message", "saying") for w in words):
+            if DEBUG:
+                print(f"[WindowsController] Skipping Windows Start search for complex sentence: {app_name}")
+            return False
+
         try:
             if DEBUG:
                 print(f"[WindowsController] Searching and launching via Windows Start: {app_name}")

@@ -72,7 +72,61 @@ class CommandRouter:
             text_to_type = type_match.group(1).strip()
             return {"action": "type_text", "text": text_to_type, "category": "KEYBOARD", "description": f"Type: '{text_to_type}'"}
 
-        # 4. Scrolling & Media
+        # 4. WhatsApp In-Depth Automation
+        # Case A: Full message -> "send whatsapp message to John saying Hello" or "open whatsapp and message Mom Hello"
+        wa_msg_match = re.search(r"(?:send\s+)?(?:whatsapp\s+message\s+to|message\s+to|message)\s+([a-zA-Z0-9\s]+?)(?:\s+on\s+whatsapp)?\s+(?:saying|that|with\s+text)\s+(.+)$", clean) or \
+                       re.search(r"(?:open\s+whatsapp\s+(?:and\s+|in\s+that\s+)?message\s+)([a-zA-Z0-9\s]+?)\s+(?:saying|that|with\s+text)?\s*(.+)$", clean)
+        if wa_msg_match:
+            contact = wa_msg_match.group(1).strip()
+            msg = wa_msg_match.group(2).strip()
+            return {"action": "send_whatsapp_message", "contact": contact, "message": msg, "category": "WHATSAPP", "description": f"Send WhatsApp message to {contact}: '{msg}'"}
+
+        # Case B: Open specific chat -> "open whatsapp and in that Rahul chat", "in whatsapp open Alex", "open whatsapp search Rahul"
+        wa_chat_match = re.search(r"^open\s+whatsapp\s+(?:(?:and\s+)?in\s+that\s+|(?:and\s+)?(?:search|find|chat\s+with)\s+|chat\s+of\s+)?([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?(?:\s+on\s+whatsapp|\s+in\s+whatsapp)?$", clean) or \
+                        re.search(r"^in\s+whatsapp\s+(?:app\s+)?open\s+([a-zA-Z0-9\s]+?)(?:\s+chat|\s+conversation)?$", clean) or \
+                        re.search(r"^open\s+(?:chat\s+of\s+)([a-zA-Z0-9\s]+?)\s+on\s+whatsapp$", clean)
+        if wa_chat_match:
+            contact = wa_chat_match.group(1).strip()
+            # If the user just said "open whatsapp" or "open whatsapp app"
+            if contact in ("", "whatsapp", "app", "whatsapp app", "the whatsapp"):
+                return {"action": "open_browser", "url": "https://web.whatsapp.com", "category": "BROWSER", "description": "Open WhatsApp"}
+            return {"action": "open_whatsapp_chat", "contact": contact, "category": "WHATSAPP", "description": f"Open WhatsApp chat for {contact}"}
+
+        wa_type_send = re.search(r"^(?:type\s+this\s+|type\s+)(.+?)(?:\s+and\s+send|\s+in\s+whatsapp\s+and\s+send)$", clean)
+        if wa_type_send:
+            msg = wa_type_send.group(1).strip()
+            return {"action": "type_and_send_whatsapp", "message": msg, "category": "WHATSAPP", "description": f"Type and send: '{msg}'"}
+
+        # 5. YouTube In-Depth Automation
+        # "open youtube and in that python tutorial", "in youtube open python fastapi tutorial", "open youtube search X"
+        yt_search_match = re.search(r"^open\s+youtube\s+(?:(?:and\s+)?in\s+that\s+|(?:and\s+)?search\s+(?:for\s+)?|search\s+on\s+youtube\s+(?:for\s+)?)(.+)$", clean) or \
+                          re.search(r"^in\s+youtube\s+(?:search|open|play)\s+(.+)$", clean) or \
+                          re.search(r"^open\s+(?:youtube\s+)?(.+?)\s+tutorial(?:\s+details|\s+on\s+youtube)?$", clean)
+        if yt_search_match:
+            query = yt_search_match.group(1).strip()
+            if query not in ("", "youtube", "app", "the youtube"):
+                return {"action": "search_youtube", "query": query, "auto_play": True, "category": "BROWSER", "description": f"Search YouTube for: {query}"}
+
+        # 6. Streaming Search ("open jio hotstar in that bigboss live", "open telugu bigboss in hotstar season 10")
+        hotstar_search_match = re.search(r"(?:open\s+)?(?:hotstar\s+in\s+that\s+|in\s+hotstar\s+)(.+)$", clean) or \
+                               re.search(r"(?:open\s+)?(.+?)\s+in\s+(?:the\s+)?hotstar(?:\s+(.+))?$", clean)
+        if hotstar_search_match:
+            q1 = hotstar_search_match.group(1) or ""
+            q2 = hotstar_search_match.group(2) if hotstar_search_match.lastindex >= 2 and hotstar_search_match.group(2) else ""
+            query = f"{q1} {q2}".strip()
+            if query and query != "hotstar":
+                return {"action": "search_hotstar", "query": query, "category": "BROWSER", "description": f"Search Hotstar for: {query}"}
+
+        jiocinema_search_match = re.search(r"(?:open\s+)?(?:jiocinema\s+in\s+that\s+|in\s+jiocinema\s+)(.+)$", clean) or \
+                                 re.search(r"(?:open\s+)?(.+?)\s+in\s+(?:the\s+)?jiocinema(?:\s+(.+))?$", clean)
+        if jiocinema_search_match:
+            q1 = jiocinema_search_match.group(1) or ""
+            q2 = jiocinema_search_match.group(2) if jiocinema_search_match.lastindex >= 2 and jiocinema_search_match.group(2) else ""
+            query = f"{q1} {q2}".strip()
+            if query and query != "jiocinema":
+                return {"action": "search_jiocinema", "query": query, "category": "BROWSER", "description": f"Search JioCinema for: {query}"}
+
+        # 7. Scrolling & Media
         if clean in ("scroll down", "go down", "page down"):
             return {"action": "scroll_down", "category": "MOUSE", "description": "Scroll down"}
         
@@ -85,7 +139,7 @@ class CommandRouter:
         if clean in ("fullscreen", "make it full screen", "full screen"):
             return {"action": "fullscreen", "category": "MEDIA", "description": "Toggle fullscreen"}
 
-        # 5. Tab / Window Switcher ("open youtube that i have already keep opened in chrome", "switch to youtube tab")
+        # 8. Tab / Window Switcher ("open youtube that i have already keep opened in chrome", "switch to youtube tab")
         already_open_match = re.search(r"(?:open\s+)?([a-zA-Z0-9\s]+?)\s+(?:that\s+i\s+have\s+)?already\s+(?:keep\s+|kept\s+)?(?:opened|open|running)", clean)
         if already_open_match:
             target = already_open_match.group(1).replace("the", "").strip()
@@ -97,7 +151,7 @@ class CommandRouter:
             if target_title not in ("window", "app", "tab", "active window"):
                 return {"action": "focus_window", "target": target_title, "category": "WINDOWS", "description": f"Switch to {target_title}"}
 
-        # 6. Tab & Window Management
+        # 9. Tab & Window Management
         if clean in ("close this tab", "close tab", "close the tab"):
             return {"action": "close_tab", "category": "BROWSER", "description": "Close active browser tab"}
 
@@ -125,54 +179,6 @@ class CommandRouter:
         if clean in ("switch window", "next window", "switch app"):
             return {"action": "switch_window", "category": "WINDOWS", "description": "Switch active window"}
 
-        # 7. Streaming Search ("open jio hotstar in that bigboss live", "open telugu bigboss in hotstar season 10")
-        hotstar_search_match = re.search(r"(?:open\s+)?(?:hotstar\s+in\s+that\s+|in\s+hotstar\s+)(.+)$", clean) or \
-                               re.search(r"(?:open\s+)?(.+?)\s+in\s+(?:the\s+)?hotstar(?:\s+(.+))?$", clean)
-        if hotstar_search_match:
-            q1 = hotstar_search_match.group(1) or ""
-            q2 = hotstar_search_match.group(2) if hotstar_search_match.lastindex >= 2 and hotstar_search_match.group(2) else ""
-            query = f"{q1} {q2}".strip()
-            if query and query != "hotstar":
-                return {"action": "search_hotstar", "query": query, "category": "BROWSER", "description": f"Search Hotstar for: {query}"}
-
-        jiocinema_search_match = re.search(r"(?:open\s+)?(?:jiocinema\s+in\s+that\s+|in\s+jiocinema\s+)(.+)$", clean) or \
-                                 re.search(r"(?:open\s+)?(.+?)\s+in\s+(?:the\s+)?jiocinema(?:\s+(.+))?$", clean)
-        if jiocinema_search_match:
-            q1 = jiocinema_search_match.group(1) or ""
-            q2 = jiocinema_search_match.group(2) if jiocinema_search_match.lastindex >= 2 and jiocinema_search_match.group(2) else ""
-            query = f"{q1} {q2}".strip()
-            if query and query != "jiocinema":
-                return {"action": "search_jiocinema", "query": query, "category": "BROWSER", "description": f"Search JioCinema for: {query}"}
-
-        # 8. WhatsApp Messaging & Chat Opening
-        wa_msg_match = re.search(r"(?:send\s+)?(?:whatsapp\s+message\s+to|message\s+to|message)\s+([a-zA-Z0-9\s]+?)(?:\s+on\s+whatsapp)?\s+(?:saying|that|with\s+text)\s+(.+)$", clean) or \
-                       re.search(r"(?:open\s+whatsapp\s+and\s+message\s+)([a-zA-Z0-9\s]+?)\s+(?:saying|that|with\s+text)?\s*(.+)$", clean)
-        if wa_msg_match:
-            contact = wa_msg_match.group(1).strip()
-            msg = wa_msg_match.group(2).strip()
-            return {"action": "send_whatsapp_message", "contact": contact, "message": msg, "category": "WHATSAPP", "description": f"Send WhatsApp message to {contact}: '{msg}'"}
-
-        wa_chat_match = re.search(r"^open\s+whatsapp\s+(?:and\s+)?(?:search|find|chat\s+with)\s+(.+)$", clean) or \
-                        re.search(r"^open\s+(?:chat\s+of\s+|conversation\s+with\s+)?([a-zA-Z0-9\s]+?)\s+(?:chat\s+)?on\s+whatsapp$", clean) or \
-                        re.search(r"^(?:in\s+whatsapp\s+(?:app\s+)?open\s+|open\s+whatsapp\s+chat\s+(?:of|for|with)\s+)(.+)$", clean)
-        if wa_chat_match:
-            contact = wa_chat_match.group(1).strip()
-            if contact not in ("whatsapp", "app"):
-                return {"action": "open_whatsapp_chat", "contact": contact, "category": "WHATSAPP", "description": f"Open WhatsApp chat for {contact}"}
-
-        wa_type_send = re.search(r"^(?:type\s+this\s+|type\s+)(.+?)(?:\s+and\s+send|\s+in\s+whatsapp\s+and\s+send)$", clean)
-        if wa_type_send:
-            msg = wa_type_send.group(1).strip()
-            return {"action": "type_and_send_whatsapp", "message": msg, "category": "WHATSAPP", "description": f"Type and send: '{msg}'"}
-
-        # 9. YouTube Search & Play
-        yt_search_match = re.search(r"^(?:open\s+youtube\s+and\s+)?(?:search\s+youtube\s+(?:for\s+)?|search\s+on\s+youtube\s+(?:for\s+)?|in\s+youtube\s+(?:search|open|play)\s+)(.+)$", clean) or \
-                          re.search(r"^open\s+(?:youtube\s+)?(.+?)\s+tutorial(?:\s+details|\s+on\s+youtube)?$", clean)
-        if yt_search_match:
-            query = yt_search_match.group(1).strip()
-            if query not in ("youtube", "app"):
-                return {"action": "search_youtube", "query": query, "auto_play": True, "category": "BROWSER", "description": f"Search YouTube for: {query}"}
-
         # 10. Direct Website Portals ("open hotstar", "open jiocinema", "open youtube", "open netflix", "open whatsapp")
         for site_key, site_url in KNOWN_WEBSITES.items():
             if clean in (f"open {site_key}", f"open {site_key} app", f"go to {site_key}", f"launch {site_key}", f"open {site_key} tab", f"open the {site_key}"):
@@ -190,15 +196,19 @@ class CommandRouter:
             cmd_to_run = term_run_match.group(1).strip()
             return {"action": "run_cmd", "command": cmd_to_run, "category": "TERMINAL", "description": f"Run command: {cmd_to_run}"}
 
-        # 13. Laptop Application Launching ("open command prompt in my laptop not chrome", "open cmd", "open notepad")
+        # 13. Strict Laptop Application Launching ("open command prompt in my laptop not chrome", "open cmd", "open notepad")
+        # Must strictly be a known application or short name (not sentences)
         app_clean = re.sub(r"\s+(?:in\s+my\s+laptop\s+not\s+chrome|in\s+my\s+laptop|on\s+my\s+laptop|on\s+laptop|in\s+laptop|on\s+pc|app)$", "", clean)
-        app_match = re.match(r"^(?:open|launch|start)\s+(.+)$", app_clean)
+        app_match = re.match(r"^(?:open|launch|start)\s+([a-zA-Z0-9_\-\s]{1,30})$", app_clean)
         if app_match:
             candidate = app_match.group(1).strip()
+            # If candidate is a known application
             if candidate in KNOWN_APPS:
                 return {"action": "open_app", "target": candidate, "category": "WINDOWS", "description": f"Open {candidate}"}
             
-            if not any(candidate.startswith(p) for p in ("http", "www", "search", "youtube", "google")):
+            # If short single app word and not a sentence with verbs/prepositions
+            words = candidate.split()
+            if len(words) <= 2 and not any(w in ("in", "that", "and", "or", "search", "google", "youtube", "to", "with") for w in words):
                 return {"action": "open_app", "target": candidate, "category": "WINDOWS", "description": f"Open application: {candidate}"}
 
         # 14. Google Search
