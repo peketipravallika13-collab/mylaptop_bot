@@ -43,18 +43,21 @@ class CommandRouter:
         """
         clean = cls.normalize_text(text)
 
-        # 1. Clipboard actions ("copy that", "copy my current text screen content")
+        # 1. Clipboard actions ("copy that", "copy this content", "copy my current text screen content")
         if re.search(r"\bcopy\s+(?:my\s+)?(?:current\s+)?(?:text\s+)?(?:screen\s+content|all\s+text|everything)\b", clean):
             return {"action": "copy_screen_text", "category": "CLIPBOARD", "description": "Copy screen text content"}
 
-        if clean in ("copy that", "copy", "copy text", "copy this"):
+        if clean in ("copy that", "copy", "copy text", "copy this", "copy this content", "copy content"):
             return {"action": "copy_that", "category": "CLIPBOARD", "description": "Copy current selection"}
         
-        if clean in ("paste that", "paste", "paste here", "paste this", "paste it"):
+        if clean in ("paste that", "paste", "paste here", "paste this", "paste it", "paste content"):
             return {"action": "paste_that", "category": "CLIPBOARD", "description": "Paste from clipboard"}
 
-        # 2. Mouse actions ("click that", "click here")
-        if clean in ("click that", "click here", "click", "left click"):
+        # 2. Mouse actions ("click that", "click here", "click send button", "click send", "click something message")
+        if clean in ("click send", "click send button", "send message", "send", "click on send", "send button"):
+            return {"action": "press_key", "key": "enter", "category": "KEYBOARD", "description": "Send message"}
+
+        if clean in ("click that", "click here", "click", "left click", "click something", "click message", "click something message"):
             return {"action": "click_current", "category": "MOUSE", "description": "Click current position"}
         
         if clean in ("double click", "double click that"):
@@ -63,7 +66,13 @@ class CommandRouter:
         if clean in ("right click", "right click that"):
             return {"action": "right_click", "category": "MOUSE", "description": "Right click current position"}
 
-        # 3. Scrolling & Media
+        # 3. Typing in active app / message box ("type hello world", "type message how are you")
+        type_match = re.match(r"^(?:type\s+(?:message\s+|this\s+)?|write\s+)(.+)$", clean)
+        if type_match and not clean.startswith("type this and send"):
+            text_to_type = type_match.group(1).strip()
+            return {"action": "type_text", "text": text_to_type, "category": "KEYBOARD", "description": f"Type: '{text_to_type}'"}
+
+        # 4. Scrolling & Media
         if clean in ("scroll down", "go down", "page down"):
             return {"action": "scroll_down", "category": "MOUSE", "description": "Scroll down"}
         
@@ -76,7 +85,7 @@ class CommandRouter:
         if clean in ("fullscreen", "make it full screen", "full screen"):
             return {"action": "fullscreen", "category": "MEDIA", "description": "Toggle fullscreen"}
 
-        # 4. Tab / Window Switcher ("open youtube that i have already keep opened in chrome", "switch to youtube tab")
+        # 5. Tab / Window Switcher ("open youtube that i have already keep opened in chrome", "switch to youtube tab")
         already_open_match = re.search(r"(?:open\s+)?([a-zA-Z0-9\s]+?)\s+(?:that\s+i\s+have\s+)?already\s+(?:keep\s+|kept\s+)?(?:opened|open|running)", clean)
         if already_open_match:
             target = already_open_match.group(1).replace("the", "").strip()
@@ -88,7 +97,7 @@ class CommandRouter:
             if target_title not in ("window", "app", "tab", "active window"):
                 return {"action": "focus_window", "target": target_title, "category": "WINDOWS", "description": f"Switch to {target_title}"}
 
-        # 5. Tab & Window Management
+        # 6. Tab & Window Management
         if clean in ("close this tab", "close tab", "close the tab"):
             return {"action": "close_tab", "category": "BROWSER", "description": "Close active browser tab"}
 
@@ -116,11 +125,10 @@ class CommandRouter:
         if clean in ("switch window", "next window", "switch app"):
             return {"action": "switch_window", "category": "WINDOWS", "description": "Switch active window"}
 
-        # 6. Specific Streaming Search ("open jio hotstar in that bigboss live", "open telugu bigboss in hotstar season 10")
+        # 7. Streaming Search ("open jio hotstar in that bigboss live", "open telugu bigboss in hotstar season 10")
         hotstar_search_match = re.search(r"(?:open\s+)?(?:hotstar\s+in\s+that\s+|in\s+hotstar\s+)(.+)$", clean) or \
                                re.search(r"(?:open\s+)?(.+?)\s+in\s+(?:the\s+)?hotstar(?:\s+(.+))?$", clean)
         if hotstar_search_match:
-            # Build search query
             q1 = hotstar_search_match.group(1) or ""
             q2 = hotstar_search_match.group(2) if hotstar_search_match.lastindex >= 2 and hotstar_search_match.group(2) else ""
             query = f"{q1} {q2}".strip()
@@ -136,7 +144,7 @@ class CommandRouter:
             if query and query != "jiocinema":
                 return {"action": "search_jiocinema", "query": query, "category": "BROWSER", "description": f"Search JioCinema for: {query}"}
 
-        # 7. WhatsApp Messaging ("send whatsapp message to John saying Hello", "open whatsapp and message Mom Hello")
+        # 8. WhatsApp Messaging & Chat Opening
         wa_msg_match = re.search(r"(?:send\s+)?(?:whatsapp\s+message\s+to|message\s+to|message)\s+([a-zA-Z0-9\s]+?)(?:\s+on\s+whatsapp)?\s+(?:saying|that|with\s+text)\s+(.+)$", clean) or \
                        re.search(r"(?:open\s+whatsapp\s+and\s+message\s+)([a-zA-Z0-9\s]+?)\s+(?:saying|that|with\s+text)?\s*(.+)$", clean)
         if wa_msg_match:
@@ -146,10 +154,10 @@ class CommandRouter:
 
         wa_chat_match = re.search(r"^open\s+whatsapp\s+(?:and\s+)?(?:search|find|chat\s+with)\s+(.+)$", clean) or \
                         re.search(r"^open\s+(?:chat\s+of\s+|conversation\s+with\s+)?([a-zA-Z0-9\s]+?)\s+(?:chat\s+)?on\s+whatsapp$", clean) or \
-                        re.search(r"^open\s+whatsapp\s+chat\s+(?:of|for|with)\s+(.+)$", clean)
+                        re.search(r"^(?:in\s+whatsapp\s+(?:app\s+)?open\s+|open\s+whatsapp\s+chat\s+(?:of|for|with)\s+)(.+)$", clean)
         if wa_chat_match:
             contact = wa_chat_match.group(1).strip()
-            if contact != "whatsapp":
+            if contact not in ("whatsapp", "app"):
                 return {"action": "open_whatsapp_chat", "contact": contact, "category": "WHATSAPP", "description": f"Open WhatsApp chat for {contact}"}
 
         wa_type_send = re.search(r"^(?:type\s+this\s+|type\s+)(.+?)(?:\s+and\s+send|\s+in\s+whatsapp\s+and\s+send)$", clean)
@@ -157,50 +165,49 @@ class CommandRouter:
             msg = wa_type_send.group(1).strip()
             return {"action": "type_and_send_whatsapp", "message": msg, "category": "WHATSAPP", "description": f"Type and send: '{msg}'"}
 
-        # 8. Terminal / Command Prompt Task Execution ("open cmd and run dir", "run command in terminal pip install numpy")
+        # 9. YouTube Search & Play
+        yt_search_match = re.search(r"^(?:open\s+youtube\s+and\s+)?(?:search\s+youtube\s+(?:for\s+)?|search\s+on\s+youtube\s+(?:for\s+)?|in\s+youtube\s+(?:search|open|play)\s+)(.+)$", clean) or \
+                          re.search(r"^open\s+(?:youtube\s+)?(.+?)\s+tutorial(?:\s+details|\s+on\s+youtube)?$", clean)
+        if yt_search_match:
+            query = yt_search_match.group(1).strip()
+            if query not in ("youtube", "app"):
+                return {"action": "search_youtube", "query": query, "auto_play": True, "category": "BROWSER", "description": f"Search YouTube for: {query}"}
+
+        # 10. Direct Website Portals ("open hotstar", "open jiocinema", "open youtube", "open netflix", "open whatsapp")
+        for site_key, site_url in KNOWN_WEBSITES.items():
+            if clean in (f"open {site_key}", f"open {site_key} app", f"go to {site_key}", f"launch {site_key}", f"open {site_key} tab", f"open the {site_key}"):
+                return {"action": "open_browser", "url": site_url, "category": "BROWSER", "description": f"Open {site_key.title()}"}
+
+        # 11. Folder Launching ("open this folder", "open downloads folder", "open projects folder", "open folder <path>")
+        folder_match = re.match(r"^open\s+(?:this\s+folder|folder\s+(.+)|(downloads|documents|desktop|pictures|music|videos|projects)(\s+folder)?)$", clean)
+        if folder_match:
+            folder_name = folder_match.group(1) or folder_match.group(2) or "projects"
+            return {"action": "open_folder", "target": folder_name, "category": "FILE", "description": f"Open folder: {folder_name}"}
+
+        # 12. Terminal / Command Prompt Task Execution ("open cmd and run dir", "run command in terminal pip install numpy")
         term_run_match = re.search(r"^(?:open\s+(?:command\s+prompt|cmd|terminal)\s+and\s+run\s+|run\s+(?:command\s+)?(?:in\s+(?:cmd|terminal|command\s+prompt|powershell)\s+)?|execute\s+(?:in\s+(?:cmd|terminal|powershell)\s+)?)(.+)$", clean)
         if term_run_match and not clean.startswith("open"):
             cmd_to_run = term_run_match.group(1).strip()
             return {"action": "run_cmd", "command": cmd_to_run, "category": "TERMINAL", "description": f"Run command: {cmd_to_run}"}
 
-        # 9. Direct Website Portals ("open hotstar", "open jiocinema", "open youtube", "open netflix")
-        for site_key, site_url in KNOWN_WEBSITES.items():
-            if clean in (f"open {site_key}", f"go to {site_key}", f"launch {site_key}", f"open {site_key} tab", f"open the {site_key}"):
-                return {"action": "open_browser", "url": site_url, "category": "BROWSER", "description": f"Open {site_key.title()}"}
-
-        # 8. Folder Launching ("open downloads", "open documents", etc.)
-        folder_match = re.match(r"^open\s+(downloads|documents|desktop|pictures|music|videos|projects)(\s+folder)?$", clean)
-        if folder_match:
-            folder_name = folder_match.group(1)
-            return {"action": "open_folder", "target": folder_name, "category": "FILE", "description": f"Open folder: {folder_name}"}
-
-        # 9. Laptop Application Launching ("open command prompt in my laptop not chrome", "open cmd", "open notepad")
-        # Strip trailing laptop / pc qualifiers
+        # 13. Laptop Application Launching ("open command prompt in my laptop not chrome", "open cmd", "open notepad")
         app_clean = re.sub(r"\s+(?:in\s+my\s+laptop\s+not\s+chrome|in\s+my\s+laptop|on\s+my\s+laptop|on\s+laptop|in\s+laptop|on\s+pc|app)$", "", clean)
         app_match = re.match(r"^(?:open|launch|start)\s+(.+)$", app_clean)
         if app_match:
             candidate = app_match.group(1).strip()
-            # If known app
             if candidate in KNOWN_APPS:
                 return {"action": "open_app", "target": candidate, "category": "WINDOWS", "description": f"Open {candidate}"}
             
-            # If not web url or generic search
             if not any(candidate.startswith(p) for p in ("http", "www", "search", "youtube", "google")):
                 return {"action": "open_app", "target": candidate, "category": "WINDOWS", "description": f"Open application: {candidate}"}
 
-        # 10. YouTube Search & Play
-        yt_search_match = re.match(r"^(?:open\s+youtube\s+and\s+)?(?:search\s+youtube\s+(?:for\s+)?|search\s+on\s+youtube\s+(?:for\s+)?)(.+)$", clean)
-        if yt_search_match:
-            query = yt_search_match.group(1).strip()
-            return {"action": "search_youtube", "query": query, "category": "BROWSER", "description": f"Search YouTube for: {query}"}
-
-        # 11. Google Search
+        # 14. Google Search
         google_match = re.match(r"^(?:search\s+google\s+(?:for\s+)?|search\s+(?:for\s+)?|google\s+)(.+)$", clean)
         if google_match and not clean.startswith("open"):
             query = google_match.group(1).strip()
             return {"action": "search_google", "query": query, "category": "BROWSER", "description": f"Search Google for: {query}"}
 
-        # 12. Listening Control
+        # 15. Listening Control
         if clean in ("stop listening", "stop voice", "go to sleep", "sleep", "pause listening"):
             return {"action": "stop_listening", "category": "SYSTEM", "description": "Stop listening to voice commands"}
 

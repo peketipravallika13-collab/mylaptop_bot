@@ -129,11 +129,41 @@ class TestPersonalAIAssistant(unittest.TestCase):
         self.assertEqual(res["action"], "run_cmd")
         self.assertEqual(res["command"], "pip install fastapi")
 
-        # Test greeting prefix + open web portal
-        res = command_router.match_local_command("hlo opin whatsapp")
+        # Test step-by-step WhatsApp in-app commands
+        res = command_router.match_local_command("open whatsapp app")
         self.assertIsNotNone(res)
         self.assertEqual(res["action"], "open_browser")
         self.assertEqual(res["url"], "https://web.whatsapp.com")
+
+        res = command_router.match_local_command("in whatsapp open Alex")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "open_whatsapp_chat")
+        self.assertEqual(res["contact"], "alex")
+
+        res = command_router.match_local_command("type message hello how are you")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "type_text")
+        self.assertEqual(res["text"], "hello how are you")
+
+        res = command_router.match_local_command("click send button")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "press_key")
+        self.assertEqual(res["key"], "enter")
+
+        # Test YouTube granular tutorial search
+        res = command_router.match_local_command("in youtube open Python tutorial")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "search_youtube")
+        self.assertIn("python", res["query"])
+
+        # Test Folder & Clipboard
+        res = command_router.match_local_command("open this folder")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "open_folder")
+
+        res = command_router.match_local_command("copy this content")
+        self.assertIsNotNone(res)
+        self.assertEqual(res["action"], "copy_that")
 
         res = command_router.match_local_command("close tab")
         self.assertIsNotNone(res)
