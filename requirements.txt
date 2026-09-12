@@ -1,0 +1,17 @@
+# Core Desktop & UI
+pystray>=0.19.5
+Pillow>=10.0.0
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+pygetwindow>=0.0.9
+keyboard>=0.13.5
+pynput>=1.7.6
+
+# Speech & Audio
+SpeechRecognition>=3.10.0
+pyttsx3>=2.90
+
+# Optional AI & Web
+google-genai>=0.1.1
+requests>=2.31.0
+python-dotenv>=1.0.0
